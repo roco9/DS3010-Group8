@@ -5,8 +5,9 @@ function App() {
     return (
         <>
             <h1>History Tab (placeholder ui for now - will probably also have more columns)</h1>
+            <div className="history-container">
             <input type="text" id="myInput" placeholder="Search table..."></input>
-            <table class="table table-striped">
+            <table class="table table-striped" id="prediction-history-table">
                 <thead>
                     <tr>
                         <th scope="col">Flight Number</th>
@@ -40,7 +41,7 @@ function App() {
                     </tr>
                 </tbody>
             </table>
-            
+            </div>
         </>
     )
 }
