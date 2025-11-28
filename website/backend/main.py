@@ -5,6 +5,8 @@ from pydantic import BaseModel
 import os
 import httpx
 import asyncio
+import pymongo
+from dotenv import load_dotenv
 
 app = FastAPI(title="Flight Data Geo-Mapper")
 
@@ -33,10 +35,33 @@ except Exception as e:
     print(f"Error loading airport codes CSV: {e}")
     AIRPORT_MAPPING = {}
 
+load_dotenv()
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
+database_url = os.getenv("MONGODB_URL")
+
+client = MongoClient(database_url, server_api=ServerApi('1'))
+try:
+    client.admin.command('ping')
+    print("Pinged your deployment. You successfully connected to MongoDB!")
+
+    DB_NAME = "flight_predictions"
+    COLLECTION_NAME = "pastQueries"
+
+    db = client[DB_NAME]
+    past_queries_collection = db[COLLECTION_NAME]
+except Exception as e:
+    print(e)
 
 class FlightRequest(BaseModel):
     origin: str
     destination: str
+    flightDate: str
+    airline: str
+    flightNumber: str
+    departTime: str
+    arrivalTime: str
+    shouldSaveSearch: bool
 
 class AirportCoords(BaseModel):
     latitude: float
@@ -99,6 +124,31 @@ async def fetch_weather(lat: float, lon: float) -> float:
     print(rating)
     return rating
 
+class PastQuery(BaseModel):
+    origin: str
+    destination: str
+    flightDate: str
+    airline: str
+    flightNumber: str
+    departTime: str
+    arrivalTime: str
+
+@app.get("/history")
+async def get_history():
+    try:
+        results = []
+        for doc in past_queries_collection.find():
+            doc.pop('_id', None) 
+            results.append(doc)
+            
+        return results
+        
+    except Exception as e:
+        print(f"Error fetching history from MongoDB: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail="Could not retrieve search history."
+        )
 
 @app.post("/get_coords/", response_model=FlightResponseWithWeather)
 async def get_flight_coordinates(flight: FlightRequest):
@@ -139,6 +189,16 @@ async def get_flight_coordinates(flight: FlightRequest):
         fetch_weather(origin_coords.latitude, origin_coords.longitude),
         fetch_weather(destination_coords.latitude, destination_coords.longitude)
     )
+
+    if flight.shouldSaveSearch:
+        print("should save!")
+        query_data = flight.model_dump(exclude={"shouldSaveSearch"})
+        
+        try:
+            result = past_queries_collection.insert_one(query_data)
+            print(f"Successfully saved query")
+        except Exception as e:
+            print(f"Error saving query to MongoDB: {e}")
 
     return FlightResponseWithWeather(
         origin_coords=origin_coords,

@@ -1,12 +1,31 @@
 import './History.css';
+import React, { useEffect, useState } from 'react';
 
 function App() {
+    const [history, setHistory] = useState([]);
+
+    useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/history')
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const result = await response.json();
+        setHistory(result);
+        console.log(result)
+      } catch (error) {
+        console.error("Fetch error:", error);
+      }
+    };
+
+    fetchData();
+  }, []);
 
     return (
         <>
-            <h1>History Tab (placeholder ui for now - will probably also have more columns)</h1>
             <div className="history-container">
-            <input type="text" id="myInput" placeholder="Search table..."></input>
+            <h1>Past Searches</h1>
             <table class="table table-striped" id="prediction-history-table">
                 <thead>
                     <tr>
@@ -14,31 +33,21 @@ function App() {
                         <th scope="col">Airline</th>
                         <th scope="col">Departure Airport</th>
                         <th scope="col">Arrival Airport</th>
-                        <th scope="col">Predicted Delay</th>
+                        <th scope="col">Departure Time</th>
+                        <th scope="col">Arrival Time</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <th scope="row">12345</th>
-                        <td>American</td>
-                        <td>ATL</td>
-                        <td>DEN</td>
-                        <td class="table-active">0</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">12345</th>
-                        <td>United</td>
-                        <td>LAX</td>
-                        <td>MIA</td>
-                        <td class="table-active">-12</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">12345</th>
-                        <td>JetBlue</td>
-                        <td>JFK</td>
-                        <td>ORD</td>
-                        <td class="table-active">14</td>
-                    </tr>
+                    {history.map((item, index) => (
+                            <tr key={index}> 
+                                <th scope="row">{item.flightNumber}</th>
+                                <td>{item.airline}</td>
+                                <td>{item.origin.toUpperCase()}</td>
+                                <td>{item.destination.toUpperCase()}</td>
+                                <td>{item.departTime}</td>
+                                <td>{item.arrivalTime}</td>
+                            </tr>
+                        ))}
                 </tbody>
             </table>
             </div>
