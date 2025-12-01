@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import './Home.css';
 import { Alert } from "react-bootstrap";
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { useLocation } from "react-router-dom";
 
 function App() {
+  const location = useLocation();
+  const historyData = location.state?.flightData;
+
   const [flightDate, setFlightDate] = useState("");
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
@@ -17,6 +21,26 @@ function App() {
   const handleShowAlert = () => setShowAlert(true);
   const handleCloseAlert = () => setShowAlert(false);
   const [shouldSaveSearch, setShouldSaveSearch] = useState(false);
+
+  useEffect(() => {
+    if (historyData) {
+      setFlightDate(historyData.flightDate || "");
+      setOrigin(historyData.origin.toUpperCase() || "");
+      setDestination(historyData.destination.toUpperCase() || "");
+      setAirline(historyData.airline || "");
+      setFlightNumber(historyData.flightNumber || "");
+      setDepartTime(historyData.departTime || "");
+      setArrivalTime(historyData.arrivalTime || "");
+    } else {
+      setFlightDate("");
+      setOrigin("");
+      setDestination("");
+      setAirline("");
+      setFlightNumber("");
+      setDepartTime("");
+      setArrivalTime("");
+    }
+  }, [historyData]);
 
   const handleCheckboxChange = (event) => {
     setShouldSaveSearch(event.target.checked);
@@ -204,6 +228,8 @@ function App() {
               />
             </div>
           </div>
+
+          {!historyData && (
           <div className="mt-3">
             <div className="form-check">
               <input
@@ -218,6 +244,7 @@ function App() {
               </label>
             </div>
           </div>
+          )}
 
           <div className="col-md-4">
             <button type="button" className="btn btn-primary mt-3" onClick={handleSubmit}>
