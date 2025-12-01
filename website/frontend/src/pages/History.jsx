@@ -1,8 +1,15 @@
 import './History.css';
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function App() {
     const [history, setHistory] = useState([]);
+    const navigate = useNavigate();
+
+    const handleClick = (rowData) => {
+        console.log("tapped row!", rowData);
+        navigate('/', { state: { flightData: rowData } });
+    };
 
     useEffect(() => {
     const fetchData = async () => {
@@ -39,7 +46,7 @@ function App() {
                 </thead>
                 <tbody>
                     {history.map((item, index) => (
-                            <tr key={index}> 
+                            <tr key={index} class="grid-hover" onClick={() => handleClick(item)}> 
                                 <th scope="row">{item.flightNumber}</th>
                                 <td>{item.airline}</td>
                                 <td>{item.origin.toUpperCase()}</td>
