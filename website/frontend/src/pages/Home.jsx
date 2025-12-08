@@ -3,6 +3,7 @@ import './Home.css';
 import { Alert } from "react-bootstrap";
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useLocation } from "react-router-dom";
+import { LeafletMap } from './LeafletMap';
 
 function App() {
   const location = useLocation();
@@ -89,6 +90,11 @@ function App() {
     setDepartTime("");
     setArrivalTime("");
     setShouldSaveSearch(false);
+    setCoords(null);
+  };
+
+  const resetResults = () => {
+    resetFields();
   };
 
   const handleSubmit = async (e) => {
@@ -122,7 +128,6 @@ function App() {
       const data = await response.json();
       setCoords(data);
       setFlightDuration(calculateFlightDuration());
-      resetFields();
       return;
     }
 
@@ -130,14 +135,39 @@ function App() {
 
   return (
     <>
-      <div class="home-container">
+      <div className="home-container">
         {showAlert && (
-          <Alert variant="danger" onClose={handleCloseAlert} dismissible>
+          <Alert variant="danger" onClose={resetResults} dismissible>
             One or more provided airport codes are invalid. Please check and try again.
           </Alert>
         )}
+
         {coords && (
-            <table class="table table-striped" id="prediction-history-table">
+          <button type="button" class="btn btn-danger" onClick={resetFields}>Clear Results</button>
+        )}
+        {coords && (
+          () => {
+            const mapMarkers = [
+              {
+                position: [coords.origin_coords.latitude, coords.origin_coords.longitude],
+                label: `Origin: ${coords.origin_name} (Weather Score: ${coords.origin_weather_code.toFixed(2)})`,
+              },
+              {
+                position: [coords.destination_coords.latitude, coords.destination_coords.longitude],
+                label: `Destination: ${coords.destination_name} (Weather Score: ${coords.destination_weather_code.toFixed(2)})`,
+              },
+            ];
+
+            return (
+              <div className="map-container-wrapper mt-4">
+                <LeafletMap markers={mapMarkers} />
+              </div>
+            );
+          }
+        )()}
+        {coords && (
+        
+            <table className="table table-striped" id="prediction-history-table">
               <thead>
                 <tr>
                   <th scope="col"></th>
