@@ -32,7 +32,6 @@ function App() {
     return (
         <>
             <div className="history-container">
-            <h1>Past Searches</h1>
             <table class="table table-striped" id="prediction-history-table">
                 <thead>
                     <tr>
@@ -42,6 +41,7 @@ function App() {
                         <th scope="col">Arrival Airport</th>
                         <th scope="col">Departure Time</th>
                         <th scope="col">Arrival Time</th>
+                        <th scope="col">Predicted Delay</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -53,6 +53,7 @@ function App() {
                                 <td>{item.destination.toUpperCase()}</td>
                                 <td>{item.departTime}</td>
                                 <td>{item.arrivalTime}</td>
+                                <td>{item.prediction}</td>
                             </tr>
                         ))}
                 </tbody>

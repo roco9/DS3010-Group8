@@ -80,6 +80,16 @@ function App() {
     return formatTimeDifference(diffMs);
   };
 
+  const resetFields = () => {
+    setFlightDate("");
+    setOrigin("");
+    setDestination("");
+    setAirline("");
+    setFlightNumber("");
+    setDepartTime("");
+    setArrivalTime("");
+    setShouldSaveSearch(false);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -112,6 +122,7 @@ function App() {
       const data = await response.json();
       setCoords(data);
       setFlightDuration(calculateFlightDuration());
+      resetFields();
       return;
     }
 
@@ -120,12 +131,37 @@ function App() {
   return (
     <>
       <div class="home-container">
-        <h1>Home Tab</h1>
         {showAlert && (
           <Alert variant="danger" onClose={handleCloseAlert} dismissible>
             One or more provided airport codes are invalid. Please check and try again.
           </Alert>
         )}
+        {coords && (
+            <table class="table table-striped" id="prediction-history-table">
+              <thead>
+                <tr>
+                  <th scope="col"></th>
+                  <th scope="col">Airport</th>
+                  <th scope="col">Weather Score</th>
+                  <th scope="col">Predicted Delay</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">Origin</th>
+                  <td>{coords.origin_name}</td>
+                  <td>{coords.origin_weather_code}</td>
+                  <td>{coords.prediction}</td>
+                </tr>
+                <tr>
+                  <th scope="row">Destination</th>
+                  <td>{coords.destination_name}</td>
+                  <td>{coords.destination_weather_code}</td>
+                  <td>{coords.prediction}</td>
+                </tr>
+              </tbody>
+            </table>
+          )}
 
         <div className="row">
           <div className="col-md-4">
@@ -252,47 +288,9 @@ function App() {
             </button>
           </div>
 
-          {coords && (
-            <table class="table table-striped" id="prediction-history-table">
-              <thead>
-                <tr>
-                  <th scope="col"></th>
-                  <th scope="col">Airport</th>
-                  <th scope="col">Latitude</th>
-                  <th scope="col">Longitude</th>
-                  <th scope="col">Weather Code (0-1)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">Origin</th>
-                  <td>{coords.origin_name}</td>
-                  <td>{coords.origin_coords.latitude}</td>
-                  <td>{coords.origin_coords.longitude}</td>
-                  <td>{coords.origin_weather_code}</td>
-                </tr>
-                <tr>
-                  <th scope="row">Destination</th>
-                  <td>{coords.destination_name}</td>
-                  <td>{coords.destination_coords.latitude}</td>
-                  <td>{coords.destination_coords.longitude}</td>
-                  <td>{coords.destination_weather_code}</td>
-                </tr>
-              </tbody>
-            </table>
-          )}
 
         </div>
 
-        {flightDuration && (
-          <p>Flight Duration: {flightDuration}</p>
-        )}
-
-        {coords && (
-          <pre className="mt-3">
-            {JSON.stringify(coords, null, 2)}
-          </pre>
-        )}
       </div>
     </>
   );

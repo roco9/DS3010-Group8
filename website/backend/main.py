@@ -7,6 +7,7 @@ import httpx
 import asyncio
 import pymongo
 from dotenv import load_dotenv
+import random
 
 app = FastAPI(title="Flight Data Geo-Mapper")
 
@@ -85,6 +86,7 @@ class FlightResponseWithWeather(BaseModel):
     destination_weather_code: float
     origin_name: str
     destination_name: str
+    prediction: float
 
 
 
@@ -132,6 +134,7 @@ class PastQuery(BaseModel):
     flightNumber: str
     departTime: str
     arrivalTime: str
+    prediction: float
 
 @app.get("/history")
 async def get_history():
@@ -193,6 +196,7 @@ async def get_flight_coordinates(flight: FlightRequest):
     if flight.shouldSaveSearch:
         print("should save!")
         query_data = flight.model_dump(exclude={"shouldSaveSearch"})
+        query_data["prediction"] = random.randint(0, 20)
         
         try:
             result = past_queries_collection.insert_one(query_data)
@@ -206,6 +210,7 @@ async def get_flight_coordinates(flight: FlightRequest):
         origin_weather_code=origin_weather,
         destination_weather_code=destination_weather,
         origin_name=origin_name,
-        destination_name=destination_name
+        destination_name=destination_name,
+        prediction=random.randint(0, 20)
     )
 
