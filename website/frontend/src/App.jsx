@@ -7,7 +7,7 @@ function App() {
     <>
       <nav className="navbar navbar-expand-lg navbar-light bg-light">
         <div className="container">
-          <Link className="navbar-brand" to="/">Flight Time Predictor</Link>
+          <Link className="navbar-brand" to="/">Flight Times</Link>
           <div className="collapse navbar-collapse">
             <div className="navbar-nav">
               <Link className="nav-item nav-link" to="/">Home</Link>

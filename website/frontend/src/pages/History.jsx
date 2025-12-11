@@ -35,7 +35,6 @@ function App() {
             <table class="table table-striped" id="prediction-history-table">
                 <thead>
                     <tr>
-                        <th scope="col">Flight Number</th>
                         <th scope="col">Airline</th>
                         <th scope="col">Departure Airport</th>
                         <th scope="col">Arrival Airport</th>
@@ -47,13 +46,12 @@ function App() {
                 <tbody>
                     {history.map((item, index) => (
                             <tr key={index} class="grid-hover" onClick={() => handleClick(item)}> 
-                                <th scope="row">{item.flightNumber}</th>
                                 <td>{item.airline}</td>
                                 <td>{item.origin.toUpperCase()}</td>
                                 <td>{item.destination.toUpperCase()}</td>
                                 <td>{item.departTime}</td>
                                 <td>{item.arrivalTime}</td>
-                                <td>{item.prediction}</td>
+                                <td>{item.prediction.toFixed(2)} minutes</td>
                             </tr>
                         ))}
                 </tbody>

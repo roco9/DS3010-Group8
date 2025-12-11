@@ -8,7 +8,75 @@ import asyncio
 import pymongo
 from dotenv import load_dotenv
 import random
+import pickle
+import joblib
+import sys
+import math
+from datetime import datetime
+from typing import Optional
 
+def convert_to_minutes(x):
+  df = x.copy()
+  for column in df.columns:
+
+    try:
+        numeric_column = pd.to_numeric(df[column], errors='coerce').fillna(0).astype(int)
+        
+        hh = (numeric_column // 100).astype(int)
+        mm = (numeric_column % 100).astype(int)
+        df[column] = hh * 60 + mm
+    except Exception as e:
+        print(f"Error converting column {column} to int for prediction: {e}")
+        df[column] = 0
+        
+  return df
+
+def recursive_patch_model(obj, target_func):
+    if hasattr(obj, '__dict__'):
+        for attr, value in obj.__dict__.items():
+            if value is target_func:
+                obj.__dict__[attr] = convert_to_minutes
+            elif isinstance(value, (list, tuple)):
+                for i, item in enumerate(value):
+                    if item is target_func:
+                        value[i] = convert_to_minutes
+                    else:
+                        recursive_patch_model(item, target_func)
+            elif isinstance(value, dict):
+                for key, item in value.items():
+                    if item is target_func:
+                        value[key] = convert_to_minutes
+                    else:
+                        recursive_patch_model(item, target_func)
+            else:
+                recursive_patch_model(value, target_func)
+
+model_path = 'model.pkl'
+MODEL = None
+try:
+    with open(model_path, 'rb') as f:
+        class DummyModule:
+            pass
+            
+        sys.modules['__main__'] = DummyModule()
+        setattr(sys.modules['__main__'], 'convert_to_minutes', convert_to_minutes)
+        
+        random_search_cv = joblib.load(model_path)
+        
+        MODEL = random_search_cv.best_estimator_ 
+        
+        print(f"Machine Learning Model (best_estimator) loaded successfully from: {model_path} via patching.")
+
+except FileNotFoundError:
+    print(f"ERROR: Model file not found at: {model_path}. Prediction will use dummy data.")
+except Exception as e:
+    print(f"Error loading model using joblib or extracting estimator: {e}")
+
+if MODEL is not None:    
+    if hasattr(MODEL, 'feature_names_in_'):
+        print("Features required by the model:")
+        required_features = list(MODEL.feature_names_in_)
+        print(required_features)
 app = FastAPI(title="Flight Data Geo-Mapper")
 
 app.add_middleware(
@@ -62,7 +130,13 @@ class FlightRequest(BaseModel):
     flightNumber: str
     departTime: str
     arrivalTime: str
+    taxiOut: Optional[int] = None
+    taxiIn: Optional[int] = None
+    wheelsOn: str
+    wheelsOff: str
     shouldSaveSearch: bool
+    distance: float = 0.0
+    adjustBasedOnWeather: bool = False
 
 class AirportCoords(BaseModel):
     latitude: float
@@ -153,6 +227,74 @@ async def get_history():
             detail="Could not retrieve search history."
         )
 
+def to_rad(degrees: float) -> float:
+    return degrees * (math.pi / 180)
+
+def calculate_haversine_distance(
+    lat1: float, lon1: float, lat2: float, lon2: float
+) -> float:
+    R = 6371
+
+    lat1_rad = to_rad(lat1)
+    lon1_rad = to_rad(lon1)
+    lat2_rad = to_rad(lat2)
+    lon2_rad = to_rad(lon2)
+
+    dLat = lat2_rad - lat1_rad
+    dLon = lon2_rad - lon1_rad
+
+    a = (
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dLon / 2) * math.sin(dLon / 2)
+    )
+
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    distance_km = R * c
+
+    distance_miles = distance_km * 0.621371
+    
+    return round(distance_miles, 2)
+
+def make_prediction(flight: FlightRequest, origin_weather: float, destination_weather: float, originCoords: AirportCoords, destinationCoords: AirportCoords) -> float:
+    if MODEL is None:
+        return random.randint(0, 20)
+    date_string = flight.flightDate
+    date_format = '%Y-%m-%d'
+    date_object = datetime.strptime(date_string, date_format)
+    day_of_week_int = date_object.weekday()
+
+    haversine_dist = calculate_haversine_distance(
+        originCoords.latitude, 
+        originCoords.longitude, 
+        destinationCoords.latitude, 
+        destinationCoords.longitude
+    )
+
+    feature_data = {
+        'DayOfWeek': [day_of_week_int],
+        'TaxiOut': [flight.taxiOut],
+        'TaxiIn': [flight.taxiIn],
+        'WheelsOn': [flight.wheelsOn],
+        'WheelsOff': [flight.wheelsOff],
+        'CRSDepTime': [flight.departTime], 
+        'Distance': [haversine_dist],
+        'Origin': [flight.origin],
+        'Dest': [flight.destination],
+        'IATA_Code_Marketing_Airline': [flight.airline]
+    }
+    
+    print(feature_data)
+    input_df = pd.DataFrame(feature_data)
+
+    try:
+        prediction = MODEL.predict(input_df)[0]
+        return float(prediction)
+    except Exception as e:
+        print(f"Error making prediction with loaded model: {e}")
+        return random.randint(0, 20)
+
+
 @app.post("/get_coords/", response_model=FlightResponseWithWeather)
 async def get_flight_coordinates(flight: FlightRequest):
     def get_coords(airport_code: str):
@@ -193,10 +335,37 @@ async def get_flight_coordinates(flight: FlightRequest):
         fetch_weather(destination_coords.latitude, destination_coords.longitude)
     )
 
+    adjusted_taxi_in = flight.taxiIn
+    adjusted_taxi_out = flight.taxiOut
+    
+    if flight.adjustBasedOnWeather:
+        try:
+            taxi_out_int = int(flight.taxiOut) if flight.taxiOut else 0
+        except (ValueError, TypeError):
+            taxi_out_int = 0
+            
+        try:
+            taxi_in_int = int(flight.taxiIn) if flight.taxiIn else 0
+        except (ValueError, TypeError):
+            taxi_in_int = 0
+            
+        if taxi_out_int > 0:
+            adjusted_taxi_out_val = taxi_out_int + (origin_weather * taxi_out_int)
+            adjusted_taxi_out = str(round(adjusted_taxi_out_val))
+        
+        if taxi_in_int > 0:
+            adjusted_taxi_in_val = taxi_in_int + (destination_weather * taxi_in_int)
+            adjusted_taxi_in = str(round(adjusted_taxi_in_val))
+            
+    flight.taxiIn = adjusted_taxi_in
+    flight.taxiOut = adjusted_taxi_out
+
+    flight_prediction = make_prediction(flight, origin_weather, destination_weather, originCoords=origin_coords, destinationCoords=destination_coords)
+    print(f"Flight prediction: {flight_prediction}")
     if flight.shouldSaveSearch:
         print("should save!")
         query_data = flight.model_dump(exclude={"shouldSaveSearch"})
-        query_data["prediction"] = random.randint(0, 20)
+        query_data["prediction"] = flight_prediction
         
         try:
             result = past_queries_collection.insert_one(query_data)
@@ -211,6 +380,6 @@ async def get_flight_coordinates(flight: FlightRequest):
         destination_weather_code=destination_weather,
         origin_name=origin_name,
         destination_name=destination_name,
-        prediction=random.randint(0, 20)
+        prediction=flight_prediction
     )
 
