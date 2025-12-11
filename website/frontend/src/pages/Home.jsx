@@ -16,12 +16,17 @@ function App() {
   const [flightNumber, setFlightNumber] = useState("");
   const [departTime, setDepartTime] = useState("");
   const [arrivalTime, setArrivalTime] = useState("");
+  const [taxiIn, setTaxiIn] = useState("");
+  const [taxiOut, setTaxiOut] = useState("");
+  const [wheelsOn, setWheelsOn] = useState("");
+  const [wheelsOff, setWheelsOff] = useState("");
   const [flightDuration, setFlightDuration] = useState("");
   const [coords, setCoords] = useState(null);
   const [showAlert, setShowAlert] = useState(false);
   const handleShowAlert = () => setShowAlert(true);
   const handleCloseAlert = () => setShowAlert(false);
   const [shouldSaveSearch, setShouldSaveSearch] = useState(false);
+  const [adjustBasedOnWeather, setAdjustBasedOnWeather] = useState(false);
 
   useEffect(() => {
     if (historyData) {
@@ -32,6 +37,10 @@ function App() {
       setFlightNumber(historyData.flightNumber || "");
       setDepartTime(historyData.departTime || "");
       setArrivalTime(historyData.arrivalTime || "");
+      setTaxiIn(String(historyData.taxiIn || ""));
+      setTaxiOut(String(historyData.taxiOut || ""));
+      setWheelsOff(historyData.wheelsOff || "");
+      setWheelsOn(historyData.wheelsOn || "");
     } else {
       setFlightDate("");
       setOrigin("");
@@ -40,12 +49,36 @@ function App() {
       setFlightNumber("");
       setDepartTime("");
       setArrivalTime("");
+      setWheelsOff("");
+      setWheelsOn("");
+      setTaxiIn("");
+      setTaxiOut("");
     }
   }, [historyData]);
 
   const handleCheckboxChange = (event) => {
     setShouldSaveSearch(event.target.checked);
   };
+
+  const handleShouldAdjust = (event) => {
+    setAdjustBasedOnWeather(event.target.checked);
+  };
+
+  const calculateTotalTime = (timeString, prediction) => {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  
+  const arrivalMinutes = (hours * 60) + minutes;
+  
+  const totalMinutes = arrivalMinutes + prediction;
+  
+  const newHours = Math.floor(totalMinutes / 60) % 24;
+  const newMinutes = Math.round(totalMinutes % 60);
+  
+  const formattedHours = String(newHours).padStart(2, '0');
+  const formattedMinutes = String(newMinutes).padStart(2, '0');
+
+  return `${formattedHours}:${formattedMinutes}`;
+};
 
   const formatTimeDifference = (ms) => {
     if (ms <= 0) return null;
@@ -89,6 +122,10 @@ function App() {
     setFlightNumber("");
     setDepartTime("");
     setArrivalTime("");
+    setTaxiIn("");
+    setTaxiOut("");
+    setWheelsOff("");
+    setWheelsOn("");
     setShouldSaveSearch(false);
     setCoords(null);
   };
@@ -99,6 +136,9 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    let taxiInInt = taxiIn ? parseInt(taxiIn, 10) : null;
+    let taxiOutInt = taxiOut ? parseInt(taxiOut, 10) : null;
 
     const response = await fetch("http://localhost:8000/get_coords/", {
       method: "POST",
@@ -113,7 +153,12 @@ function App() {
         flightNumber: flightNumber,
         departTime: departTime,
         arrivalTime: arrivalTime,
-        shouldSaveSearch: shouldSaveSearch
+        taxiIn: taxiInInt,
+        taxiOut: taxiOutInt,
+        wheelsOn: wheelsOn,
+        wheelsOff: wheelsOff,
+        shouldSaveSearch: shouldSaveSearch,
+        adjustBasedOnWeather: adjustBasedOnWeather
       })
     });
 
@@ -173,7 +218,6 @@ function App() {
                   <th scope="col"></th>
                   <th scope="col">Airport</th>
                   <th scope="col">Weather Score</th>
-                  <th scope="col">Predicted Delay</th>
                 </tr>
               </thead>
               <tbody>
@@ -181,16 +225,24 @@ function App() {
                   <th scope="row">Origin</th>
                   <td>{coords.origin_name}</td>
                   <td>{coords.origin_weather_code}</td>
-                  <td>{coords.prediction}</td>
                 </tr>
                 <tr>
                   <th scope="row">Destination</th>
                   <td>{coords.destination_name}</td>
                   <td>{coords.destination_weather_code}</td>
-                  <td>{coords.prediction}</td>
                 </tr>
               </tbody>
             </table>
+          )}
+
+          {coords && (
+            <div>
+              <div className="flight-duration-container mt-3">
+              <h5>Estimated Delay: {coords.prediction.toFixed(2)} minutes</h5>
+            </div>
+
+
+              </div>
           )}
 
         <div className="row">
@@ -237,38 +289,24 @@ function App() {
             </div>
           </div>
 
-          <div className="col-md-6">
+          <div className="col-md-4">
             <div className="mb-3">
-              <label htmlFor="airline" className="form-label">Airline</label>
+              <label htmlFor="airline" className="form-label">Airline IATA Code</label>
               <input
                 type="text"
                 className="form-control"
                 id="airline"
                 maxLength=""
-                placeholder="i.e. United"
+                placeholder="i.e. UA"
                 value={airline}
                 onChange={(e) => setAirline(e.target.value)}
               />
             </div>
           </div>
 
-          <div className="col-md-6">
-            <div className="mb-3">
-              <label htmlFor="flightNumber" className="form-label">Flight Number</label>
-              <input
-                type="text"
-                className="form-control"
-                id="flightNumber"
-                maxLength=""
-                placeholder="i.e. UA124"
-                value={flightNumber}
-                onChange={(e) => setFlightNumber(e.target.value)}
-              />
-            </div>
-          </div>
 
+          <div className="row">
           <div className="col-md-6">
-            <div className="mb-">
               <label htmlFor="departTime" className="form-label">Depart Time</label>
               <input
                 type="time"
@@ -279,9 +317,9 @@ function App() {
                 onChange={(e) => setDepartTime(e.target.value)}
                 pattern="[0-9]{2}:[0-9]{2}"
               />
-            </div>
+              </div>
 
-            <div className="col-mb-6">
+            <div className="col-md-6">
               <label htmlFor="arrivalTime" className="form-label">Arrival Time</label>
               <input
                 type="time"
@@ -293,9 +331,68 @@ function App() {
                 pattern="[0-9]{2}:[0-9]{2}"
               />
             </div>
-          </div>
 
-          {!historyData && (
+            </div>
+
+          <div className="row">
+            <div className="col-md-6">
+              <label htmlFor="taxiIn" className="form-label">Taxi In</label>
+              <input
+                type="number"
+                className="form-control"
+                id="taxiIn"
+                placeholder="i.e. 21 (mins)"
+                value={taxiIn}
+                onChange={(e) => setTaxiIn(e.target.value)}
+                pattern="[0-9]{2}:[0-9]{2}"
+              />
+            </div>
+
+            <div className="col-md-6">
+              <label htmlFor="taxiOut" className="form-label">Taxi Out</label>
+              <input
+                type="number"
+                className="form-control"
+                id="taxiOut"
+                placeholder="i.e. 14 (mins)"
+                value={taxiOut}
+                onChange={(e) => setTaxiOut(e.target.value)}
+                pattern="[0-9]{2}:[0-9]{2}"
+              />
+            </div>
+            </div>
+
+            <div className="row">
+
+            <div className="col-md-6">
+              <label htmlFor="wheelsOn" className="form-label">Wheels On</label>
+              <input
+                type="time"
+                className="form-control"
+                id="wheelsOn"
+                placeholder="00:00"
+                value={wheelsOn}
+                onChange={(e) => setWheelsOn(e.target.value)}
+                pattern="[0-9]{2}:[0-9]{2}"
+              />
+            </div>
+
+            <div className="col-md-6">
+              <label htmlFor="wheelsOff" className="form-label">Wheels Off</label>
+              <input
+                type="time"
+                className="form-control"
+                id="wheelsOff"
+                placeholder="00:00"
+                value={wheelsOff}
+                onChange={(e) => setWheelsOff(e.target.value)}
+                pattern="[0-9]{2}:[0-9]{2}"
+              />
+            </div>
+          </div>
+          
+
+
           <div className="mt-3">
             <div className="form-check">
               <input
@@ -310,7 +407,19 @@ function App() {
               </label>
             </div>
           </div>
-          )}
+
+          <div className="form-check">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id="adjustBasedOnWeather"
+                checked={adjustBasedOnWeather}
+                onChange={handleShouldAdjust}
+              />
+              <label className="form-check-label" htmlFor="adjustBasedOnWeather">
+                Adjust based on Weather
+              </label>
+            </div>
 
           <div className="col-md-4">
             <button type="button" className="btn btn-primary mt-3" onClick={handleSubmit}>
